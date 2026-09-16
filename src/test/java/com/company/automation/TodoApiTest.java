@@ -2,6 +2,8 @@ package com.company.automation;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Tag;
+
 import io.restassured.response.Response;
 
 import java.util.List;
@@ -127,6 +129,7 @@ public class TodoApiTest {
         }
 
         @Test
+        @Tag("smoke")
         public void shouldPatchTodoSuccessfully() {
 
                 /*
@@ -181,6 +184,7 @@ public class TodoApiTest {
         }
 
         @Test
+        @Tag("regression")
         public void shouldPutTodoSuccessfully() {
                 /*
                  * PUT replaces the full Todo record for an existing ID.
@@ -225,6 +229,7 @@ public class TodoApiTest {
         }
 
         @Test
+        @Tag("smoke")
         public void shouldDeleteTodoSuccessfully() {
                 Response deleteResp = todoClient.deleteTodo(5);
                 assertEquals(200, deleteResp.getStatusCode(),
@@ -234,6 +239,7 @@ public class TodoApiTest {
         // Neg test cases..
 
         @Test
+        @Tag("regression")
         public void shouldReturn404ForInvalidTodoId() {
                 Todo todo = new Todo();
                 todo.setId(999999);
