@@ -1,0 +1,25 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                bat 'mvn clean test -Denv=qa'
+            }
+        }
+    }
+
+    post {
+        always {
+            allure([
+                results: [[path: 'target/allure-results']]
+            ])
+        }
+    }
+}
