@@ -1,6 +1,23 @@
 pipeline {
     agent any
 
+    parameters {
+        choice(
+            name: 'TARGET_ENV',
+            choices: ['dev', 'qa', 'prod'],
+            description: 'Environment used by config.properties'
+        )
+            choice(
+            name: 'TEST_GROUP',
+            choices: ['smoke', 'regression'],
+            description: 'JUnit tag group to run'
+        )
+    }
+
+    options {
+        timestamps()
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,7 +27,7 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                bat 'mvn clean test -Denv=qa'
+               bat 'mvn -B clean test -Denv=%TARGET_ENV% -Dtest.groups=%TEST_GROUP%'
             }
         }
     }
