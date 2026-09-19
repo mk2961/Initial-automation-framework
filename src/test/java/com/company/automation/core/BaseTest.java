@@ -1,9 +1,16 @@
 package com.company.automation.core;
 
-import com.company.automation.config.ConfigManager;
 import org.junit.jupiter.api.BeforeAll;
 
-public class BaseTest {
+import com.company.automation.config.ConfigManager;
+
+/**
+ * Common base behavior for framework tests.
+ *
+ * Printing the selected environment once per test class makes accidental runs
+ * against the wrong target easier to spot in local and CI logs.
+ */
+public abstract class BaseTest {
 
     @BeforeAll
     public static void printEnvironment() {

@@ -83,7 +83,7 @@ public final class TodoUtils {
 
     public static double calculateCompletionPercentage(List<Todo> todos) {
         if (todos.isEmpty()) {
-            return 0.0; // Avoid division by zero
+            return 0.0;
         }
         int totalTodos = todos.size();
         int completedTodos = 0;

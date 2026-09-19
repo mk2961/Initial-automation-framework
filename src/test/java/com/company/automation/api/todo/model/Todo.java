@@ -1,6 +1,12 @@
 package com.company.automation.api.todo.model;
 
+/**
+ * API model used by Jackson/REST Assured for Todo request serialization and
+ * response deserialization. It intentionally mirrors the public API contract,
+ * not the database schema.
+ */
 public class Todo {
+
     private int userId;
     private int id;
     private String title;
@@ -8,7 +14,6 @@ public class Todo {
 
     public int getUserId() {
         return userId;
-
     }
 
     public void setUserId(int userId) {

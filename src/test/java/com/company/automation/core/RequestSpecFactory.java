@@ -5,26 +5,28 @@ import io.restassured.builder.RequestSpecBuilder;
 import io.restassured.filter.log.LogDetail;
 import io.restassured.specification.RequestSpecification;
 
-public class RequestSpecFactory {
+/**
+ * Central REST Assured request configuration.
+ *
+ * Shared headers, content type, logging, and Allure attachment behavior belong
+ * here so individual API clients only describe endpoint-specific behavior.
+ */
+public final class RequestSpecFactory {
+
+    private RequestSpecFactory() {
+        // Static factory utility.
+    }
 
     public static RequestSpecification getRequestSpec(String baseUrl) {
-
-
-        RequestSpecBuilder requestSpecBuilder = new RequestSpecBuilder();
-
-        requestSpecBuilder.addFilter(new AllureRestAssured());
-        requestSpecBuilder.setBaseUri(baseUrl);
-        requestSpecBuilder.setContentType("application/json");
-        requestSpecBuilder.addHeader("X-Test-Client", "practice-java");
-
-        requestSpecBuilder.log(LogDetail.METHOD);
-        requestSpecBuilder.log(LogDetail.URI);
-        requestSpecBuilder.log(LogDetail.HEADERS);
-        requestSpecBuilder.log(LogDetail.BODY);
-
-        RequestSpecification requestSpecification =
-                requestSpecBuilder.build();
-
-        return requestSpecification;
+        return new RequestSpecBuilder()
+                .addFilter(new AllureRestAssured())
+                .setBaseUri(baseUrl)
+                .setContentType("application/json")
+                .addHeader("X-Test-Client", "practice-java")
+                .log(LogDetail.METHOD)
+                .log(LogDetail.URI)
+                .log(LogDetail.HEADERS)
+                .log(LogDetail.BODY)
+                .build();
     }
 }

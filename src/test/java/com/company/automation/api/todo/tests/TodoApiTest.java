@@ -1,7 +1,5 @@
 package com.company.automation.api.todo.tests;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -20,15 +18,22 @@ import com.company.automation.core.BaseTest;
 
 import io.restassured.response.Response;
 
+import static org.junit.jupiter.api.Assertions.*;
+
+/**
+ * API contract/regression coverage for the Todo service.
+ *
+ * These tests validate behavior through HTTP only. Direct database assertions
+ * live in TodoPersistenceTest so API contract tests do not become coupled to
+ * the persistence implementation.
+ */
 public class TodoApiTest extends BaseTest {
 
     private TodoClient todoClient;
 
     /*
      * Tracks Todos created during each test.
-     *
-     * @AfterEach removes registered test data so tests remain isolated
-     * and do not depend on execution order.
+     * @AfterEach removes registered test data so tests remain isolated.
      */
     private final List<Integer> createdTodoIds = new ArrayList<>();
 
@@ -39,27 +44,28 @@ public class TodoApiTest extends BaseTest {
 
     @AfterEach
     void cleanUpTodos() {
+
         List<String> failures = new ArrayList<>();
 
         for (int id : createdTodoIds) {
+
             try {
                 Response response = todoClient.deleteTodo(id);
                 int status = response.statusCode();
 
                 /*
-                 * 204 = cleanup successfully deleted the Todo.
+                 * 204 = cleanup deleted the Todo.
                  * 404 = the test already deleted the Todo.
-                 *
-                 * Both are valid cleanup outcomes.
                  */
                 if (status != 204 && status != 404) {
-                    failures.add("Todo " + id + ": HTTP " + status);
+                    failures.add(
+                            "Todo " + id + ": HTTP " + status);
                 }
 
             } catch (Exception exception) {
+
                 failures.add(
-                        "Todo " + id + ": " + exception.getMessage()
-                );
+                        "Todo " + id + ": " + exception.getMessage());
             }
         }
 
@@ -67,10 +73,16 @@ public class TodoApiTest extends BaseTest {
 
         assertTrue(
                 failures.isEmpty(),
-                "Cleanup failures: " + String.join("; ", failures)
-        );
+                "Cleanup failures: " + String.join("; ", failures));
     }
 
+    /*
+     * Registers test-created data for cleanup.
+     */
+    private Todo registerForCleanup(Todo todo) {
+        createdTodoIds.add(todo.getId());
+        return todo;
+    }
 
     // ============================================================
     // CORE API / CRUD TESTS
@@ -82,44 +94,34 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC01 - GET all Todos")
     public void shouldGetAllTodos() {
 
-        // Arrange - create test-owned data.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo todo = new Todo();
-        todo.setUserId(101);
         todo.setTitle("TC01 - GET All Todo");
         todo.setCompleted(false);
+        todo.setUserId(userId);
 
         Response createResponse = todoClient.createTodo(todo);
 
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
         Todo createdTodo = createResponse.as(Todo.class);
-        createdTodoIds.add(createdTodo.getId());
+        int id = createdTodo.getId();
 
-        // Act.
+        createdTodoIds.add(id);
+
         List<Todo> todos = todoClient.getTodos();
 
-        // Assert.
         assertNotNull(todos);
 
-        boolean found = false;
-
-        for (Todo todoItem : todos) {
-            if (todoItem.getId() == createdTodo.getId()) {
-                found = true;
-                break;
-            }
-        }
-
         assertTrue(
-                found,
-                "GET all should contain the Todo created by TC01"
-        );
+                todos.stream()
+                        .anyMatch(todoItem -> todoItem.getId() == id),
+                "GET all should contain the Todo created by TC01");
     }
-
 
     @Test
     @Tag("smoke")
@@ -127,9 +129,10 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC02 - GET Todo by ID")
     public void shouldGetTodoById() {
 
-        // Arrange.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo request = new Todo();
-        request.setUserId(102);
+        request.setUserId(userId);
         request.setTitle("TC02 - GET Todo by ID");
         request.setCompleted(false);
 
@@ -138,27 +141,23 @@ public class TodoApiTest extends BaseTest {
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
         Todo createdTodo = createResponse.as(Todo.class);
         int id = createdTodo.getId();
+
         createdTodoIds.add(id);
 
-        // Act.
         Todo retrievedTodo = todoClient.getTodoById(id);
 
-        // Assert.
         assertNotNull(retrievedTodo);
         assertEquals(id, retrievedTodo.getId());
-        assertEquals(102, retrievedTodo.getUserId());
+        assertEquals(userId, retrievedTodo.getUserId());
         assertEquals(
                 "TC02 - GET Todo by ID",
-                retrievedTodo.getTitle()
-        );
+                retrievedTodo.getTitle());
         assertFalse(retrievedTodo.isCompleted());
     }
-
 
     @Test
     @Tag("smoke")
@@ -166,63 +165,56 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC03 - POST creates a Todo")
     public void shouldCreateTodoSuccessfully() {
 
-        // Arrange.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo todo = new Todo();
-        todo.setUserId(103);
+        todo.setUserId(userId);
         todo.setTitle("TC03 - POST Todo");
         todo.setCompleted(false);
 
-        // Act.
         Response createResponse = todoClient.createTodo(todo);
 
-        // Assert HTTP response.
         assertNotNull(
                 createResponse,
-                "POST response should not be null"
-        );
+                "POST response should not be null");
 
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "POST should return HTTP 201"
-        );
+                "POST should return HTTP 201");
 
         Todo createdTodo = createResponse.as(Todo.class);
         createdTodoIds.add(createdTodo.getId());
 
-        // Assert created resource.
         assertTrue(
                 createdTodo.getId() > 0,
-                "Created Todo should have a generated ID"
-        );
+                "Created Todo should have a generated ID");
 
         assertEquals(
-                103,
+                userId,
                 createdTodo.getUserId(),
-                "User ID should match the request"
-        );
+                "User ID should match the request");
 
         assertEquals(
-                "TC03 - POST Todo",
+                todo.getTitle(),
                 createdTodo.getTitle(),
-                "Title should match the request"
-        );
+                "Title should match the request");
 
-        assertFalse(
+        assertEquals(
+                todo.isCompleted(),
                 createdTodo.isCompleted(),
-                "New Todo should be incomplete"
-        );
+                "Completed status should match the request");
     }
-
 
     @Test
     @Tag("regression")
-    @DisplayName("TC04 - PUT updates and persists an existing Todo")
+    @DisplayName("TC04 - PUT updates an existing Todo")
     public void shouldPutTodoSuccessfully() {
 
-        // Arrange - create the original resource.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo todo = new Todo();
-        todo.setUserId(104);
+        todo.setUserId(userId);
         todo.setTitle("TC04 - Original Todo");
         todo.setCompleted(false);
 
@@ -231,52 +223,43 @@ public class TodoApiTest extends BaseTest {
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
         Todo createdTodo = createResponse.as(Todo.class);
         int id = createdTodo.getId();
+
         createdTodoIds.add(id);
 
-        // Modify the resource.
         todo.setTitle("TC04 - PUT Updated Todo");
         todo.setCompleted(true);
 
-        // Act.
-        Response putResponse = todoClient.updateTodo(id, todo);
+        Response putResponse =
+                todoClient.updateTodo(id, todo);
 
         assertEquals(
                 200,
                 putResponse.statusCode(),
-                "PUT request should return HTTP 200"
-        );
+                "PUT request should return HTTP 200");
 
-        Todo updatedTodo = putResponse.as(Todo.class);
+        Todo updatedTodo =
+                putResponse.as(Todo.class);
 
-        // Assert PUT response.
         assertEquals(id, updatedTodo.getId());
-        assertEquals(104, updatedTodo.getUserId());
+
+        assertEquals(
+                userId,
+                updatedTodo.getUserId(),
+                "User ID should remain unchanged");
+
         assertEquals(
                 "TC04 - PUT Updated Todo",
-                updatedTodo.getTitle()
-        );
-        assertTrue(updatedTodo.isCompleted());
+                updatedTodo.getTitle(),
+                "PUT should return the updated title");
 
-        /*
-         * Verify the update persisted by retrieving the Todo again.
-         */
-        Todo persistedTodo = todoClient.getTodoById(id);
-
-        assertNotNull(persistedTodo);
-        assertEquals(id, persistedTodo.getId());
-        assertEquals(104, persistedTodo.getUserId());
-        assertEquals(
-                "TC04 - PUT Updated Todo",
-                persistedTodo.getTitle()
-        );
-        assertTrue(persistedTodo.isCompleted());
+        assertTrue(
+                updatedTodo.isCompleted(),
+                "Todo should be completed after PUT");
     }
-
 
     @Test
     @Tag("smoke")
@@ -284,106 +267,114 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC05 - PATCH updates an existing Todo")
     public void shouldPatchTodoSuccessfully() {
 
-        // Arrange.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo todo = new Todo();
-        todo.setUserId(105);
+        todo.setUserId(userId);
         todo.setTitle("TC05 - Original Todo");
         todo.setCompleted(false);
 
-        Response createResponse = todoClient.createTodo(todo);
+        Response createResponse =
+                todoClient.createTodo(todo);
 
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
-        Todo createdTodo = createResponse.as(Todo.class);
+        Todo createdTodo =
+                createResponse.as(Todo.class);
+
         int id = createdTodo.getId();
+
         createdTodoIds.add(id);
 
-        // Modify values for PATCH.
         todo.setTitle("TC05 - Patched Todo");
         todo.setCompleted(true);
 
-        // Act.
-        Response patchResponse = todoClient.patchTodo(id, todo);
+        Response patchResponse =
+                todoClient.patchTodo(id, todo);
 
         assertEquals(
                 200,
                 patchResponse.statusCode(),
-                "PATCH request should return HTTP 200"
-        );
+                "PATCH request should return HTTP 200");
 
-        Todo patchedTodo = patchResponse.as(Todo.class);
+        Todo patchedTodo =
+                patchResponse.as(Todo.class);
 
-        // Assert.
         assertEquals(id, patchedTodo.getId());
-        assertEquals(105, patchedTodo.getUserId());
+
+        assertEquals(
+                userId,
+                patchedTodo.getUserId(),
+                "User ID should remain unchanged");
+
         assertEquals(
                 "TC05 - Patched Todo",
-                patchedTodo.getTitle()
-        );
-        assertTrue(patchedTodo.isCompleted());
-    }
+                patchedTodo.getTitle(),
+                "PATCH should return the updated title");
 
+        assertTrue(
+                patchedTodo.isCompleted(),
+                "Todo should be completed after PATCH");
+    }
 
     @Test
     @Tag("regression")
     @DisplayName("TC06 - Create and update Todo workflow")
     public void shouldUpdateTodoSuccessfully() {
 
-        // Arrange.
-        Todo todo = new Todo();
-        todo.setUserId(106);
-        todo.setTitle("TC06 - Created Todo");
-        todo.setCompleted(false);
+        int userId = TodoTestData.generateUniqueUserId();
 
-        Response createResponse = todoClient.createTodo(todo);
+        Todo todo = new Todo();
+        todo.setUserId(userId);
+        todo.setCompleted(false);
+        todo.setTitle("TC06 - Created Todo");
+
+        Response createResponse =
+                todoClient.createTodo(todo);
 
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
-        Todo createdTodo = createResponse.as(Todo.class);
+        Todo createdTodo =
+                createResponse.as(Todo.class);
+
         int id = createdTodo.getId();
+
         createdTodoIds.add(id);
 
-        // Verify initial state.
         assertEquals(id, createdTodo.getId());
-        assertEquals(106, createdTodo.getUserId());
+        assertEquals(userId, createdTodo.getUserId());
         assertEquals(
                 "TC06 - Created Todo",
-                createdTodo.getTitle()
-        );
+                createdTodo.getTitle());
         assertFalse(createdTodo.isCompleted());
 
-        // Act - update the Todo.
-        todo.setTitle("TC06 - Updated Todo");
         todo.setCompleted(true);
+        todo.setTitle("TC06 - Updated Todo");
 
-        Response patchResponse = todoClient.patchTodo(id, todo);
+        Response patchResponse =
+                todoClient.patchTodo(id, todo);
 
         assertEquals(
                 200,
                 patchResponse.statusCode(),
-                "Update request should return HTTP 200"
-        );
+                "Update request should return HTTP 200");
 
-        Todo updatedTodo = patchResponse.as(Todo.class);
+        Todo updatedTodo =
+                patchResponse.as(Todo.class);
 
-        // Assert updated state.
         assertEquals(id, updatedTodo.getId());
-        assertEquals(106, updatedTodo.getUserId());
+        assertEquals(userId, updatedTodo.getUserId());
         assertEquals(
                 "TC06 - Updated Todo",
-                updatedTodo.getTitle()
-        );
+                updatedTodo.getTitle());
         assertTrue(updatedTodo.isCompleted());
     }
-
 
     @Test
     @Tag("smoke")
@@ -391,49 +382,44 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC07 - DELETE removes an existing Todo")
     public void shouldDeleteTodoSuccessfully() {
 
-        // Arrange.
+        int userId = TodoTestData.generateUniqueUserId();
+
         Todo todo = new Todo();
-        todo.setUserId(107);
+        todo.setUserId(userId);
         todo.setTitle("TC07 - Todo to Delete");
         todo.setCompleted(false);
 
-        Response createResponse = todoClient.createTodo(todo);
+        Response createResponse =
+                todoClient.createTodo(todo);
 
         assertEquals(
                 201,
                 createResponse.statusCode(),
-                "Create request should return HTTP 201"
-        );
+                "Create request should return HTTP 201");
 
-        Todo createdTodo = createResponse.as(Todo.class);
+        Todo createdTodo =
+                createResponse.as(Todo.class);
+
         int id = createdTodo.getId();
 
-        /*
-         * Keep the ID registered for cleanup.
-         * Cleanup accepts 404 if this test already deleted it.
-         */
         createdTodoIds.add(id);
 
-        // Act.
-        Response deleteResponse = todoClient.deleteTodo(id);
+        Response deleteResponse =
+                todoClient.deleteTodo(id);
 
         assertEquals(
                 204,
                 deleteResponse.statusCode(),
-                "DELETE request should return HTTP 204"
-        );
+                "DELETE request should return HTTP 204");
 
-        // Verify deletion.
         Response getResponse =
                 todoClient.getTodoResponseById(id);
 
         assertEquals(
                 404,
                 getResponse.statusCode(),
-                "Deleted Todo should no longer exist"
-        );
+                "Deleted Todo should no longer exist");
     }
-
 
     // ============================================================
     // DATA / UTILITY TESTS
@@ -444,77 +430,117 @@ public class TodoApiTest extends BaseTest {
     @DisplayName("TC08 - Count Todos by user")
     public void shouldCountTodosByUser() {
 
-        TodoTestData.createTodoByUserId(
-                108, "TC08 - Todo 1", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                108, "TC08 - Todo 2", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                108, "TC08 - Todo 3", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                208, "TC08 - Todo 4", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                208, "TC08 - Todo 5", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                308, "TC08 - Todo 6", false, createdTodoIds
-        );
+        int userId1 = TodoTestData.generateUniqueUserId();
+        int userId2 = TodoTestData.generateUniqueUserId();
+        int userId3 = TodoTestData.generateUniqueUserId();
 
-        List<Todo> todos = todoClient.getTodos();
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId1,
+                        "TC08 - Todo 1",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId1,
+                        "TC08 - Todo 2",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId1,
+                        "TC08 - Todo 3",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId2,
+                        "TC08 - Todo 4",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId2,
+                        "TC08 - Todo 5",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId3,
+                        "TC08 - Todo 6",
+                        false));
+
+        List<Todo> todos =
+                todoClient.getTodos()
+                        .stream()
+                        .filter(todo ->
+                                todo.getUserId() == userId1
+                                        || todo.getUserId() == userId2
+                                        || todo.getUserId() == userId3)
+                        .toList();
 
         Map<Integer, Integer> countByUserId =
                 TodoUtils.countTodosByUser(todos);
 
         assertEquals(
                 3,
-                countByUserId.get(108),
-                "User 108 should have 3 Todos"
-        );
+                countByUserId.get(userId1),
+                "First TC08 user should have 3 Todos");
 
         assertEquals(
                 2,
-                countByUserId.get(208),
-                "User 208 should have 2 Todos"
-        );
+                countByUserId.get(userId2),
+                "Second TC08 user should have 2 Todos");
 
         assertEquals(
                 1,
-                countByUserId.get(308),
-                "User 308 should have 1 Todo"
-        );
+                countByUserId.get(userId3),
+                "Third TC08 user should have 1 Todo");
     }
-
 
     @Test
     @Tag("regression")
     @DisplayName("TC09 - Calculate Todo completion percentage")
     public void shouldCalculateCompletionPercentage() {
 
-        /*
-         * Two completed + two incomplete = 50% completion.
-         */
-        TodoTestData.createTodoByUserId(
-                109, "TC09 - Todo 1", true, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                109, "TC09 - Todo 2", true, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                109, "TC09 - Todo 3", false, createdTodoIds
-        );
-        TodoTestData.createTodoByUserId(
-                109, "TC09 - Todo 4", false, createdTodoIds
-        );
+        int userId = TodoTestData.generateUniqueUserId();
 
-        /*
-         * Filter to TC09-owned data so unrelated API data cannot
-         * affect the percentage.
-         */
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId,
+                        "TC09 - Todo 1",
+                        true));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId,
+                        "TC09 - Todo 2",
+                        true));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId,
+                        "TC09 - Todo 3",
+                        false));
+
+        registerForCleanup(
+                TodoTestData.createTodo(
+                        todoClient,
+                        userId,
+                        "TC09 - Todo 4",
+                        false));
+
         List<Todo> todos =
-                todoClient.getTodosByUserId(109);
+                todoClient.getTodosByUserId(userId);
 
         double completedPercentage =
                 TodoUtils.calculateCompletionPercentage(todos);
@@ -523,10 +549,8 @@ public class TodoApiTest extends BaseTest {
                 50.0,
                 completedPercentage,
                 0.001,
-                "User 109 should have a 50% Todo completion rate"
-        );
+                "TC09 user should have a 50% Todo completion rate");
     }
-
 
     @Test
     @Tag("regression")
@@ -534,17 +558,18 @@ public class TodoApiTest extends BaseTest {
     public void shouldIdentifyUserWithMostTodos() {
 
         /*
-         * Pure utility test. No API setup is necessary because the
-         * method under test operates directly on a user/count map.
+         * No API data is created here.
+         * These IDs are controlled values for testing TodoUtils.
          */
-        Map<Integer, Integer> countTodosByUser = Map.of(
-                110, 3,
-                210, 2,
-                310, 1
-        );
+        Map<Integer, Integer> countTodosByUser =
+                Map.of(
+                        110, 3,
+                        210, 2,
+                        310, 1);
 
         int userIdWithMostTodos =
-                TodoUtils.findUserWithMostTodos(countTodosByUser);
+                TodoUtils.findUserWithMostTodos(
+                        countTodosByUser);
 
         int winningTodoCount =
                 countTodosByUser.get(userIdWithMostTodos);
@@ -552,66 +577,67 @@ public class TodoApiTest extends BaseTest {
         assertEquals(
                 110,
                 userIdWithMostTodos,
-                "User 110 should have the most Todos"
-        );
+                "User 110 should have the most Todos");
 
         assertEquals(
                 3,
                 winningTodoCount,
-                "Winning user should have 3 Todos"
-        );
+                "Winning user should have 3 Todos");
     }
-
-
-    // ============================================================
-    // FILTER TESTS
-    // ============================================================
 
     @Test
     @Tag("regression")
     @DisplayName("TC11 - Filter Todos by user ID")
     public void shouldFilterTodosByUserId() {
 
-        /*
-         * Create matching and non-matching data to verify
-         * that the endpoint excludes other users.
-         */
-        TodoTestData.createTodoByUserId(
-                111,
-                "TC11 - Target User Todo",
-                false,
-                createdTodoIds
-        );
+        int targetUserId =
+                TodoTestData.generateUniqueUserId();
 
-        TodoTestData.createTodoByUserId(
-                999,
-                "TC11 - Non-Target User Todo",
-                true,
-                createdTodoIds
-        );
+        int nonTargetUserId =
+                TodoTestData.generateUniqueUserId();
 
-        // Act.
+        Todo matchingTodo =
+                registerForCleanup(
+                        TodoTestData.createTodo(
+                                todoClient,
+                                targetUserId,
+                                "TC11 - Target User Todo",
+                                false));
+
+        Todo nonMatchingTodo =
+                registerForCleanup(
+                        TodoTestData.createTodo(
+                                todoClient,
+                                nonTargetUserId,
+                                "TC11 - Non-Target User Todo",
+                                true));
+
         List<Todo> todos =
-                todoClient.getTodosByUserId(111);
+                todoClient.getTodosByUserId(targetUserId);
 
-        // Assert.
+        assertTrue(
+                todos.stream()
+                        .anyMatch(todo ->
+                                todo.getId()
+                                        == matchingTodo.getId()),
+                "Filtered results should contain the target user's Todo");
+
         assertFalse(
-                todos.isEmpty(),
-                "Filter should return at least one Todo for user 111"
-        );
+                todos.stream()
+                        .anyMatch(todo ->
+                                todo.getId()
+                                        == nonMatchingTodo.getId()),
+                "Filtered results should not contain another user's Todo");
 
-        for (Todo todo : todos) {
-            assertEquals(
-                    111,
-                    todo.getUserId(),
-                    "Every returned Todo should belong to user 111"
-            );
-        }
+        assertTrue(
+                todos.stream()
+                        .allMatch(todo ->
+                                todo.getUserId() == targetUserId),
+                "Every returned Todo should belong to the target user");
     }
 
-
     // ============================================================
-    // GET NEGATIVE / VALIDATION TESTS
+    // NEGATIVE / VALIDATION TESTS
     // ============================================================
 
     @Test
@@ -622,21 +648,20 @@ public class TodoApiTest extends BaseTest {
         int invalidTodoId = 999999;
 
         Response response =
-                todoClient.getTodoResponseById(invalidTodoId);
+                todoClient.getTodoResponseById(
+                        invalidTodoId);
 
         assertEquals(
                 404,
                 response.statusCode(),
-                "Nonexistent Todo should return HTTP 404"
-        );
+                "Nonexistent Todo should return HTTP 404");
 
         assertTrue(
                 response.getBody().asString().isEmpty()
-                        || response.getBody().asString().equals("{}"),
-                "404 response body should be empty or {}"
-        );
+                        || response.getBody()
+                                .asString()
+                                .equals("{}"));
     }
-
 
     @Test
     @Tag("regression")
@@ -646,21 +671,20 @@ public class TodoApiTest extends BaseTest {
         int negativeTodoId = -1;
 
         Response response =
-                todoClient.getTodoResponseById(negativeTodoId);
+                todoClient.getTodoResponseById(
+                        negativeTodoId);
 
         assertEquals(
                 404,
                 response.statusCode(),
-                "Negative Todo ID should return HTTP 404"
-        );
+                "Negative Todo ID should return HTTP 404");
 
         assertTrue(
                 response.getBody().asString().isEmpty()
-                        || response.getBody().asString().equals("{}"),
-                "404 response body should be empty or {}"
-        );
+                        || response.getBody()
+                                .asString()
+                                .equals("{}"));
     }
-
 
     @Test
     @Tag("regression")
@@ -670,15 +694,14 @@ public class TodoApiTest extends BaseTest {
         String nonNumericTodoId = "abc";
 
         Response response =
-                todoClient.getTodoResponseByIdStringId(nonNumericTodoId);
+                todoClient.getTodoResponseByIdStringId(
+                        nonNumericTodoId);
 
         assertEquals(
                 400,
                 response.statusCode(),
-                "Non-numeric Todo ID should return HTTP 400"
-        );
+                "Non-numeric Todo ID should return HTTP 400");
     }
-
 
     @Test
     @Tag("regression")
@@ -688,146 +711,128 @@ public class TodoApiTest extends BaseTest {
         int zeroTodoId = 0;
 
         Response response =
-                todoClient.getTodoResponseById(zeroTodoId);
+                todoClient.getTodoResponseById(
+                        zeroTodoId);
 
         assertEquals(
                 404,
                 response.statusCode(),
-                "Todo ID zero should return HTTP 404"
-        );
+                "Todo ID zero should return HTTP 404");
 
         assertTrue(
                 response.getBody().asString().isEmpty()
-                        || response.getBody().asString().equals("{}"),
-                "404 response body should be empty or {}"
-        );
+                        || response.getBody()
+                                .asString()
+                                .equals("{}"));
     }
-
-
-    // ============================================================
-    // POST / DELETE VALIDATION TESTS
-    // ============================================================
 
     @Test
     @Tag("regression")
     @DisplayName("TC16 - POST blank title returns 400")
-    public void shouldReturn400WhenTitleIsBlank() {
+    public void shouldRejectBlankTitle() {
 
-        // Arrange.
-        Todo todo = new Todo();
-        todo.setUserId(116);
-        todo.setTitle("   ");
-        todo.setCompleted(false);
+        int userId = TodoTestData.generateUniqueUserId();
 
-        // Act.
+        Todo request = new Todo();
+        request.setUserId(userId);
+        request.setTitle("   ");
+        request.setCompleted(false);
+
         Response response =
-                todoClient.createTodo(todo);
+                todoClient.createTodo(request);
 
-        // Assert.
         assertEquals(
                 400,
                 response.statusCode(),
-                "Blank Todo title should return HTTP 400"
-        );
+                "Blank title should return HTTP 400");
 
-        assertTrue(
-                response.asString().contains("Todo title is required"),
-                "Error response should explain that the Todo title is required"
-        );
+        assertEquals(
+                "Todo title is required",
+                response.jsonPath()
+                        .getString("error"));
     }
-
 
     @Test
     @Tag("regression")
     @DisplayName("TC17 - DELETE nonexistent Todo returns 404")
-    public void shouldReturn404WhenDeletingNonexistentTodo() {
-
-        int nonexistentTodoId = 999999;
+    public void shouldReturn404WhenDeletingMissingTodo() {
 
         Response response =
-                todoClient.deleteTodo(nonexistentTodoId);
+                todoClient.deleteTodo(-1);
 
         assertEquals(
                 404,
                 response.statusCode(),
-                "Deleting a nonexistent Todo should return HTTP 404"
-        );
+                "Deleting a nonexistent Todo should return HTTP 404");
     }
-
-
-    // ============================================================
-    // COMBINED FILTER TESTS
-    // ============================================================
 
     @Test
     @Tag("regression")
     @DisplayName("TC18 - Filter Todos by user ID and completion status")
     public void shouldFilterTodosByUserIdAndCompletionStatus() {
 
-        /*
-         * Create three controlled records:
-         *
-         * 118 / completed=true  -> should be returned
-         * 118 / completed=false -> should be excluded
-         * 218 / completed=true  -> should be excluded
-         */
-        TodoTestData.createTodoByUserId(
-                118,
-                "TC18 - Matching Todo",
-                true,
-                createdTodoIds
-        );
+        int targetUserId =
+                TodoTestData.generateUniqueUserId();
 
-        TodoTestData.createTodoByUserId(
-                118,
-                "TC18 - Wrong Completion Status",
-                false,
-                createdTodoIds
-        );
+        int wrongUserId =
+                TodoTestData.generateUniqueUserId();
 
-        TodoTestData.createTodoByUserId(
-                218,
-                "TC18 - Wrong User",
-                true,
-                createdTodoIds
-        );
+        Todo matchingTodo =
+                registerForCleanup(
+                        TodoTestData.createTodo(
+                                todoClient,
+                                targetUserId,
+                                "TC18 - Matching Todo",
+                                false));
 
-        // Act - filter by both user ID and completion status.
-        List<Todo> todos =
-                todoClient.getTodosByUserIdAndCompletionStatus(
-                        118,
-                        true
-                );
+        Todo wrongStatusTodo =
+                registerForCleanup(
+                        TodoTestData.createTodo(
+                                todoClient,
+                                targetUserId,
+                                "TC18 - Wrong Status",
+                                true));
 
-        // Assert.
-        assertFalse(
-                todos.isEmpty(),
-                "Combined filter should return the matching Todo"
-        );
+        Todo wrongUserTodo =
+                registerForCleanup(
+                        TodoTestData.createTodo(
+                                todoClient,
+                                wrongUserId,
+                                "TC18 - Wrong User",
+                                false));
 
-        assertEquals(
-                1,
-                todos.size(),
-                "Only one TC18 Todo should match both filters"
-        );
-
-        Todo filteredTodo = todos.get(0);
-
-        assertEquals(
-                118,
-                filteredTodo.getUserId(),
-                "Returned Todo should belong to user 118"
-        );
+        List<Todo> results =
+                todoClient
+                        .getTodosByUserIdAndCompletionStatus(
+                                targetUserId,
+                                false);
 
         assertTrue(
-                filteredTodo.isCompleted(),
-                "Returned Todo should be completed"
-        );
+                results.stream()
+                        .anyMatch(todo ->
+                                todo.getId()
+                                        == matchingTodo.getId()),
+                "Results should contain the matching Todo");
 
-        assertEquals(
-                "TC18 - Matching Todo",
-                filteredTodo.getTitle(),
-                "Combined filter should return the expected Todo"
-        );
+        assertFalse(
+                results.stream()
+                        .anyMatch(todo ->
+                                todo.getId()
+                                        == wrongStatusTodo.getId()),
+                "Results should exclude Todos with the wrong completion status");
+
+        assertFalse(
+                results.stream()
+                        .anyMatch(todo ->
+                                todo.getId()
+                                        == wrongUserTodo.getId()),
+                "Results should exclude Todos belonging to another user");
+
+        assertTrue(
+                results.stream()
+                        .allMatch(todo ->
+                                todo.getUserId() == targetUserId
+                                        && !todo.isCompleted()),
+                "Every returned Todo should match both filters");
     }
 }

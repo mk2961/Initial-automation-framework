@@ -4,16 +4,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-public class ConfigManager {
+/**
+ * Loads environment-specific framework configuration from
+ * config-{env}.properties. The environment is selected with -Denv=<name> and
+ * defaults to qa when no JVM property is supplied.
+ *
+ * Example: mvn test "-Denv=local"
+ */
+public final class ConfigManager {
 
-    private static final Properties properties = new Properties();
-
-    private static final String environment = System.getProperty("env", "qa");
+    private static final Properties PROPERTIES = new Properties();
+    private static final String ENVIRONMENT = System.getProperty("env", "qa");
 
     static {
-        String configFile = "config-" + environment + ".properties";
+        String configFile = "config-" + ENVIRONMENT + ".properties";
 
-        System.out.println("ENVIRONMENT = " + environment);
+        System.out.println("ENVIRONMENT = " + ENVIRONMENT);
         System.out.println("CONFIG FILE = " + configFile);
 
         try (InputStream input = ConfigManager.class
@@ -21,31 +27,33 @@ public class ConfigManager {
                 .getResourceAsStream(configFile)) {
 
             if (input == null) {
-                throw new RuntimeException(
-                        "Config file not found: " + configFile);
+                throw new RuntimeException("Config file not found: " + configFile);
             }
 
-            properties.load(input);
+            PROPERTIES.load(input);
 
-        } catch (IOException e) {
+        } catch (IOException exception) {
             throw new RuntimeException(
                     "Failed to load config file: " + configFile,
-                    e);
+                    exception);
         }
     }
 
+    private ConfigManager() {
+        // Static configuration utility.
+    }
+
     public static String get(String key) {
-        String value = properties.getProperty(key);
+        String value = PROPERTIES.getProperty(key);
 
         if (value == null) {
-            throw new RuntimeException(
-                    "Property not found: " + key);
+            throw new RuntimeException("Property not found: " + key);
         }
 
         return value;
     }
 
     public static String getEnvironment() {
-        return environment;
+        return ENVIRONMENT;
     }
 }
