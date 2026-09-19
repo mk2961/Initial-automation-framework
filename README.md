@@ -36,11 +36,19 @@ Run the regression suite:
 mvn test "-Denv=local" "-Dtest.groups=regression"
 ```
 
-Run local-tagged tests:
+Run the database integration suite:
 
 ```powershell
-mvn test "-Denv=local" "-Dtest.groups=local"
+mvn test "-Denv=local" "-Dtest.groups=integration"
 ```
+
+Run the complete local suite:
+
+```powershell
+mvn test "-Denv=local"
+```
+
+The Jenkins `TEST_GROUP` choices are `smoke`, `regression`, `integration`, and `all`. The `local` tag is an environment constraint used by local-only tests; it is not a Jenkins suite selection.
 
 ## Environment configuration
 
