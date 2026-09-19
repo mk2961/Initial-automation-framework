@@ -1,13 +1,26 @@
-package com.company.automation;
+package com.company.automation.api.todo.util;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.HashMap;
-import java.util.ArrayList;
+
+import com.company.automation.api.todo.model.Todo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
-public class TodoUtils {
+
+/**
+ * Pure collection/analysis helpers for Todo data.
+ *
+ * Keep HTTP calls and test-data creation out of this class so these methods
+ * remain deterministic and independently testable.
+ */
+public final class TodoUtils {
+
+    private TodoUtils() {
+        // Utility class; do not instantiate.
+    }
 
     public static Map<Integer, Integer> countIncompleteTodosByUser(List<Todo> todos) {
         Map<Integer, Integer> incompleteUsers = new HashMap<>();
@@ -70,7 +83,7 @@ public class TodoUtils {
 
     public static double calculateCompletionPercentage(List<Todo> todos) {
         if (todos.isEmpty()) {
-            return 0.0; // Avoid division by zero
+            return 0.0;
         }
         int totalTodos = todos.size();
         int completedTodos = 0;
@@ -92,4 +105,5 @@ public class TodoUtils {
             throw new RuntimeException("Unable to format todos as JSON", e);
         }
     }
+
 }
