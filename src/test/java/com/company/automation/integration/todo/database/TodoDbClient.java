@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 
 import com.company.automation.config.ConfigManager;
+import com.company.automation.config.SecretManager;
 
 /**
  * Minimal JDBC client used only by persistence/integration tests.
@@ -18,8 +19,8 @@ import com.company.automation.config.ConfigManager;
 public class TodoDbClient {
 
     private static final String DB_URL = ConfigManager.get("db.url");
-    private static final String DB_USER = ConfigManager.get("db.username");
-    private static final String DB_PASS = ConfigManager.get("db.password");
+    private static final String DB_USER = SecretManager.get("DB_USERNAME");
+    private static final String DB_PASS = SecretManager.get("DB_PASSWORD");
 
     public Connection getConnection() throws SQLException {
         return DriverManager.getConnection(DB_URL, DB_USER, DB_PASS);
